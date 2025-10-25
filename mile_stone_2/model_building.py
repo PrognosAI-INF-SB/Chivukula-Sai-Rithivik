@@ -187,15 +187,9 @@ print("="*50)
 # =============================================================================
 # PART 7: SAVE PLOTS
 # =============================================================================
-# =============================================================================
-# PART 7: SAVE PLOTS
-# =============================================================================
 print("\nSaving plots...")
 
-# Specify your custom folder path
 save_dir = "C:/Users/chsai/OneDrive/Desktop/infosys internship/dataset/CMaps/mile stone2 results"
-
-# Create folder if it doesn’t exist
 os.makedirs(save_dir, exist_ok=True)
 
 # Training history plot
@@ -225,3 +219,13 @@ plt.savefig(os.path.join(save_dir, "predictions_vs_actual.png"), dpi=300)
 plt.close()
 
 print(f"Plots saved to: {save_dir}")
+
+# =============================================================================
+# PART 8: SAVE MODEL
+# =============================================================================
+print("\nSaving trained model...")
+
+model_save_path = os.path.join(save_dir, "fd004_model.h5")
+model.save(model_save_path)
+
+print(f"Model saved to: {model_save_path}")
