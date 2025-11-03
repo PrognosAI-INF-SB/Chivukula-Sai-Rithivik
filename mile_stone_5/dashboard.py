@@ -15,6 +15,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 BASE_DIR = r"C:\Users\chsai\OneDrive\Desktop\infosys internship\dataset\CMaps"
 SEQUENCES_DIR = os.path.join(BASE_DIR, "mile stone1 results")
 MODELS_DIR = os.path.join(BASE_DIR, "mile stone2 results")
+LABELS_BASE_DIR = os.path.join(BASE_DIR, "milestone 3&4 results")
 
 FD_DATASETS = [1, 2, 3, 4]
 
@@ -38,14 +39,27 @@ def load_data_and_model(fd_num):
         return None, None, None
 
 
+def load_labels(fd_num):
+    """Load label CSV for given dataset."""
+    try:
+        folder_name = f"FD00{fd_num}"
+        file_name = f"rul_labels_fd{fd_num}.csv"
+        csv_path = os.path.join(LABELS_BASE_DIR, folder_name, file_name)
+
+        df_labels = pd.read_csv(csv_path)
+        return df_labels
+    except Exception as e:
+        print(f"Error loading labels for FD00{fd_num}: {e}")
+        return pd.DataFrame({"Info": ["No label data available."]})
+
+
 def predict_and_evaluate(X_test, y_test, model):
     """Predict RUL and compute evaluation metrics."""
     y_pred = model.predict(X_test, verbose=0).flatten()
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     mae = mean_absolute_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
-    residuals = y_test - y_pred
-    return y_pred, rmse, mae, r2, residuals
+    return y_pred, rmse, mae, r2
 
 # =============================================================================
 # DASH APP
@@ -59,16 +73,16 @@ app.title = "RUL Prediction Dashboard"
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(html.H2("RUL Prediction Dashboard", 
-                        className="text-center mt-4 mb-4"))
+                        className="text-center mt-4 mb-4 text-primary"))
     ]),
 
     dbc.Row([
         dbc.Col([
-            html.Label("Select Dataset"),
+            html.Label("Select Dataset", className="fw-bold"),
             dcc.Dropdown(
                 id='fd-selector',
                 options=[{'label': f'FD00{i}', 'value': i} for i in FD_DATASETS],
-                value=4,
+                value=1,
                 clearable=False
             )
         ], width=3),
@@ -81,12 +95,21 @@ app.layout = dbc.Container([
     ], className="mb-4"),
 
     dbc.Row([
+        dbc.Col(dcc.Graph(id='trend-plot'), width=12)
+    ], className="mb-4"),
+
+    dbc.Row([
         dbc.Col([
-            html.H5("Sample Predictions"),
-            html.Div(id='predictions-table')
+            html.H5("Labels from Dataset", className="fw-bold"),
+            html.Div(id='labels-table')
         ])
-    ], className="mb-4")
-], fluid=True)
+    ], className="mb-4"),
+
+    dbc.Row([
+        dbc.Col(html.Footer("Developed by Sai Rithivik | Infosys Internship 2025",
+                            className="text-center text-muted mt-3 mb-2"))
+    ])
+], fluid=True, style={'backgroundColor': '#f8f9fa', 'padding': '20px'})
 
 # =============================================================================
 # CALLBACK
@@ -95,38 +118,41 @@ app.layout = dbc.Container([
     [Output('metrics-display', 'children'),
      Output('scatter-plot', 'figure'),
      Output('residual-hist', 'figure'),
-     Output('predictions-table', 'children')],
+     Output('trend-plot', 'figure'),
+     Output('labels-table', 'children')],
     [Input('fd-selector', 'value')]
 )
 def update_dashboard(fd_num):
     X_test, y_test, model = load_data_and_model(fd_num)
     if X_test is None:
-        return "Error loading data.", go.Figure(), go.Figure(), "No data available."
+        return "Error loading data.", go.Figure(), go.Figure(), go.Figure(), "No data available."
 
-    y_pred, rmse, mae, r2, residuals = predict_and_evaluate(X_test, y_test, model)
+    y_pred, rmse, mae, r2 = predict_and_evaluate(X_test, y_test, model)
+    df_labels = load_labels(fd_num)
 
-    # ---- Metrics (neatly spaced)
+    # ---- Metrics (only RMSE, MAE, R²)
     metrics = dbc.Row([
-        dbc.Col(html.Div([
-            html.H5("RMSE", style={'text-align': 'center'}),
-            html.P(f"{rmse:.2f}", style={'font-weight': 'bold', 'text-align': 'center', 'font-size': '18px'})
-        ]), width=2),
+        dbc.Col(dbc.Card([
+            dbc.CardBody([
+                html.H6("RMSE", className="text-center"),
+                html.H4(f"{rmse:.2f}", className="text-center text-primary")
+            ])
+        ], color="light"), width=3),
 
-        dbc.Col(html.Div([
-            html.H5("MAE", style={'text-align': 'center'}),
-            html.P(f"{mae:.2f}", style={'font-weight': 'bold', 'text-align': 'center', 'font-size': '18px'})
-        ]), width=2),
+        dbc.Col(dbc.Card([
+            dbc.CardBody([
+                html.H6("MAE", className="text-center"),
+                html.H4(f"{mae:.2f}", className="text-center text-primary")
+            ])
+        ], color="light"), width=3),
 
-        dbc.Col(html.Div([
-            html.H5("R² Score", style={'text-align': 'center'}),
-            html.P(f"{r2:.3f}", style={'font-weight': 'bold', 'text-align': 'center', 'font-size': '18px'})
-        ]), width=2),
-
-        dbc.Col(html.Div([
-            html.H5("Test Samples", style={'text-align': 'center'}),
-            html.P(f"{len(y_test)}", style={'font-weight': 'bold', 'text-align': 'center', 'font-size': '18px'})
-        ]), width=2),
-    ], className="mb-2")
+        dbc.Col(dbc.Card([
+            dbc.CardBody([
+                html.H6("R² Score", className="text-center"),
+                html.H4(f"{r2:.3f}", className="text-center text-primary")
+            ])
+        ], color="light"), width=3),
+    ], className="mb-3 justify-content-center")
 
     # ---- Scatter Plot
     scatter_fig = go.Figure()
@@ -150,6 +176,7 @@ def update_dashboard(fd_num):
     )
 
     # ---- Residual Histogram
+    residuals = y_test - y_pred
     residual_fig = go.Figure()
     residual_fig.add_trace(go.Histogram(
         x=residuals, nbinsx=40, marker_color='orange', opacity=0.7
@@ -161,16 +188,24 @@ def update_dashboard(fd_num):
         template="plotly_white"
     )
 
-    # ---- Table (first 10 samples)
-    df = pd.DataFrame({
-        "Sample": np.arange(10),
-        "Actual RUL": y_test[:10].round(2),
-        "Predicted RUL": y_pred[:10].round(2),
-        "Residual": residuals[:10].round(2)
-    })
-    table = dbc.Table.from_dataframe(df, striped=True, bordered=True, hover=True, size='sm')
+    # ---- RUL Trend Plot (first 100 samples)
+    trend_fig = go.Figure()
+    trend_fig.add_trace(go.Scatter(y=y_test[:100], mode='lines', name='Actual'))
+    trend_fig.add_trace(go.Scatter(y=y_pred[:100], mode='lines', name='Predicted'))
+    trend_fig.update_layout(
+        title="RUL Trend (First 100 Samples)",
+        xaxis_title="Sample Index",
+        yaxis_title="RUL",
+        template="plotly_white"
+    )
 
-    return metrics, scatter_fig, residual_fig, table
+    # ---- Labels Table
+    if not df_labels.empty:
+        table = dbc.Table.from_dataframe(df_labels.head(10), striped=True, bordered=True, hover=True, size='sm')
+    else:
+        table = html.Div("No label data available.")
+
+    return metrics, scatter_fig, residual_fig, trend_fig, table
 
 # =============================================================================
 # RUN APP
